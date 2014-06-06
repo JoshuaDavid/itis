@@ -18,6 +18,31 @@ class Taxon {
             case "childtaxa":
                 $this->childtaxa = $this->getChildTaxa();
                 return $this->childtaxa;
+            case "kingdom_id":
+                list($this->kingdom_id, $this->rank_id) = 
+                    $this->getKingdomAndRankIds();
+                return $this->kingdom_id;
+            case "rank_id":
+                list($this->kingdom_id, $this->rank_id) = 
+                    $this->getKingdomAndRankIds();
+                return $this->rank_id;
+            case "required_parent_rank":
+                return 0;
+            case "vernacular":
+                $this->vernacular = $this->getVernacular();
+                return $this->vernacular;
+            case "kingdom":
+                $this->kingdom = $this->getKingdom();
+                return $this->kingdom;
+            case "rank":
+                $this->rank = $this->getRank();
+                return $this->rank;
+            case "images":
+                $this->images = $this->getImages();
+                return $this->images;
+            case "comments":
+                $this->comments = $this->getComments();
+                return $this->comments;
         }
     }
     private function getLongName() {
@@ -35,13 +60,13 @@ class Taxon {
     }
     private function getParentTaxon() {
         global $db;
-        $query = "select Parent_TSN from hierarchy where TSN=:tsn";
+        $query = "select parent_tsn from taxonomic_units where tsn=:tsn";
         $stmt = $db->prepare($query);
         $stmt->bindParam(':tsn', $this->tsn);
         $stmt->execute();
         $result = $stmt->fetchAll();
         if(count($result)) {
-            $parent_tsn = $result[0]["Parent_TSN"];
+            $parent_tsn = $result[0]["parent_tsn"];
             if($parent_tsn == 0 or $parent_tsn == $this->tsn) {
                 return NULL;
             } else {
@@ -53,7 +78,7 @@ class Taxon {
     }
     private function getChildTaxa() {
         global $db;
-        $query = "select TSN from hierarchy where Parent_TSN=:tsn";
+        $query = "select tsn from taxonomic_units where parent_tsn=:tsn";
         $stmt = $db->prepare($query);
         $stmt->bindParam(':tsn', $this->tsn);
         $stmt->execute();
@@ -61,8 +86,8 @@ class Taxon {
         if(count($result)) {
             $child_taxa = array();
             foreach($result as $row) {
-                if($row['TSN'] != $this->tsn) {
-                    $child_taxon = $row['TSN'];
+                if($row['tsn'] != $this->tsn) {
+                    $child_taxon = $row['tsn'];
                     $child_taxa[] = new Taxon($child_taxon, false);
                 }
             }
@@ -72,7 +97,7 @@ class Taxon {
             return NULL;
         }
     }
-    private function getTaxonomicParents() {
+    public function getTaxonomicParents() {
         $t = $this;
         $ts = array();
         while($t->parenttaxon != NULL) {
@@ -83,29 +108,80 @@ class Taxon {
         array_pop($ts);
         return $ts;
     }
-    public function __toString() {
-        $s = "";
-        $s .= '<table>';
-        $s .=   '<tr>';
-        $s .=     '<th>Name</th>';
-        $s .=     "<td>$this->longname</td>";
-        $s .=   '</tr>';
-        $s .=   '<tr>';
-        $s .=     '<th>Taxonomic Parents</th>';
-        $s .=     '<td>';
-        foreach($this->getTaxonomicParents() as $parent) {
-            $s .= "<div><a href='?tsn=$parent->tsn'>$parent->longname</a></div>";
+    private function getKingdomAndRankIds() {
+        global $db;
+        $query = "select kingdom_id, rank_id from taxonomic_units
+            where tsn=:tsn";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':tsn', $this->tsn);
+        $stmt->execute();
+        $results = $stmt->fetch();
+        $kingdom_id = $results['kingdom_id'];
+        $rank_id = $results['rank_id'];
+        return array($kingdom_id, $rank_id);
+    }
+    private function getKingdom() {
+        global $db;
+        $query = "select kingdom_name from kingdoms
+            where kingdom_id=:kingdom_id";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':kingdom_id', $this->kingdom_id);
+        $stmt->execute();
+        $results = $stmt->fetch();
+        $kingdom = $results['kingdom_name'];
+        return $kingdom;
+    }
+    private function getRank() { 
+        global $db;
+        $query = "select rank_name from taxon_unit_types
+            where rank_id=:rank_id and kingdom_id=:kingdom_id";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':rank_id', $this->rank_id);
+        $stmt->bindParam(':kingdom_id', $this->kingdom_id);
+        $stmt->execute();
+        $results = $stmt->fetch();
+        $rank = $results['rank_name'];
+        return $rank;
+    }
+    public function getVernacular() {
+        global $db;
+        $query = "select vernacular_name from vernaculars
+            where tsn=:tsn";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':tsn', $this->tsn);
+        $stmt->execute();
+        $results = $stmt->fetch();
+        $rank = $results['vernacular_name'];
+        return $rank;
+    }
+    public function getComments() {
+        global $db;
+        // Azathoth was here. But the query works.
+        $query = "select comments.comment_detail 
+            from comments inner join tu_comments_links 
+                on comments.comment_id = tu_comments_links.comment_id 
+            where tu_comments_links.tsn=:tsn;";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':tsn', $this->tsn);
+        $stmt->execute();
+        $results = $stmt->fetchAll();
+        $comments = array();
+        foreach($results as $row) {
+            $comments[] = $row['comment_detail'];
         }
-        $s .=     '</td>';
-        $s .=   '</tr>';
-        $s .=   '<tr>';
-        $s .=     '<th>Taxonomic Children</th>';
-        $s .=     '<td>';
-        foreach($this->childtaxa as $child) {
-            $s .= "<div><a href='?tsn=$child->tsn'>$child->longname</a></div>";
-        }
-        $s .=     '</td>';
-        $s .=   '</tr>';
-        return $s;
+        return $comments;
+    }
+    public function getImages() {
+        global $db;
+        $query = "select tsn, alt, location from images
+            where tsn=:tsn";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':tsn', $this->tsn);
+        $stmt->execute();
+        $images = $stmt->fetchAll();
+        return $images;
+    }
+    public function getLink() {
+        return "$this->rank: <a href='species?tsn=$this->tsn'>$this->longname</a>";
     }
 }

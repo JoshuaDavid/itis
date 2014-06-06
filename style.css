@@ -11,3 +11,8 @@ td {
     border: 1px solid black;
     text-align: left;
 }
+
+img.thumbnail {
+    max-height: 100px;
+    max-width: 100px;
+}

@@ -1,3 +1,4 @@
+<?php include "header.php" ?>
 <?php
 include_once('useful_stuff.php');
 
@@ -10,6 +11,7 @@ if(!empty($_GET['table'])) {
 
 function show_table($tablename) {
     global $db;
+    echo '<h1>' . $tablename . '</h1>';
     echo '<h2><a href="?">Back</a></h2>';
     $tablename = addslashes($tablename);
     $query = "select * from $tablename limit 1000;";
@@ -33,4 +35,5 @@ function show_table_selector() {
         echo '</ul>';
     }
 }
-
+?>
+<?php include "footer.php" ?>

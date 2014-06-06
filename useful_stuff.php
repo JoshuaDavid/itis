@@ -48,5 +48,8 @@ function getLongName($tsn) {
         die("No taxon found with tsn=$tsn");
     }
 }
+
+function redirect($url, $delay = 0) {
+    echo "<meta http-equiv='refresh' content='$delay; url=$url' />";
+}
 ?>
-<link rel="stylesheet" href="style.css" />
